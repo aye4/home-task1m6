@@ -171,22 +171,22 @@ if __name__ == "__main__":
         else:
             x.unlink()
     # print counters
+    x = bool(global_cntr_deleted)
     for f, n in total.items():
         if n and f != "archives":
+            x = True
             print('{} file{} moved to the folder "{}".'.format(*plural(n), f))
     if len(archives):
+        x = True
         print("{} archive{} unpacked.".format(*plural(len(archives))))
     if duplicate[0]:
         print("{} file{} renamed due to duplicate name.".format(*plural(duplicate[0])))
     if duplicate[1]:
+        x = True
         print("{} duplicate file{} deleted.".format(*plural(duplicate[1])))
     if global_cntr_deleted:
         print("{} empty folder{} deleted.".format(*plural(global_cntr_deleted)))
     if global_cntr_other:
         print("{} file{} not moved due to unsupported extension.".format(*plural(global_cntr_other)))
-    if not (
-        global_cntr_other
-        or sum(x for x in duplicate)
-        or sum(x for x in total.values())
-    ):
+    elif not x:
         print("0 files found to process.")
