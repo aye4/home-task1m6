@@ -24,12 +24,11 @@ for c, l in zip(CYR, TRN):
 archives = []
 #counters
 total = {}
-other = 0
-deleted = 0
+global_cntr_other = 0
+global_cntr_deleted = 0
 duplicate = [0, 0]
 
 def normalize(s: str) -> str:
-    global trn_dict
     return sub(r'\W', '_', s.translate(trn_dict))
 
 def plural(n: int):
@@ -47,19 +46,17 @@ def calc_hash(f: Path) -> str:
                 md.update(data)
     return md.hexdigest()
 
-def process_file(f: Path, target: str):
-    global total, duplicate, archives, pth
+def process_file(f: Path, target: Path):
     fname = normalize(f.stem)
-    arc_folder = pth / target 
-    new_file = arc_folder / (fname + f.suffix)
-    #duplicate name check (extended for archives - to prevent more than one archive being unpacked into the same folder)
-    if new_file.exists() or target == 'archives' and list(arc_folder.glob(fname + '.*')):
+    new_file = target / (fname + f.suffix)
+    #duplicate name check (extended for archives - to prevent from more than one archive being unpacked into the same folder)
+    if new_file.exists() or target.stem == 'archives' and list(target.glob(fname + '.*')):
         #md5 hash
         h = calc_hash(f)
         #cycle to find a unique name (keep checking the hash)
         n = 0
         x = fname
-        while new_file.exists() or target == 'archives' and (list(arc_folder.glob(x + '.*')) or (arc_folder / x).exists()):
+        while new_file.exists() or target.stem == 'archives' and (list(target.glob(x + '.*')) or (target / x).exists()):
             if new_file.is_file() and new_file.stat().st_size == f.stat().st_size and calc_hash(new_file) == h:
                 #delete duplicate file (equal hash)
                 f.unlink()
@@ -69,48 +66,49 @@ def process_file(f: Path, target: str):
                 #filename pattern: "<old filename>_renamed_001_.<ext>"
                 n += 1
                 x = fname + '_renamed_{:0>3}_'.format(n)
-                new_file = arc_folder / (x + f.suffix)
+                new_file = target / (x + f.suffix)
         #renamed files counter
         duplicate[0] += 1
     else:
         #moved files counters
-        total[target] = total.get(target, 0) + 1
+        total[target.stem] = total.get(target.stem, 0) + 1
         #check/create sort folder
-        if not arc_folder.exists():
-            arc_folder.mkdir()
-            print(f'Folder {arc_folder} has been created.')
+        if not target.exists():
+            target.mkdir()
+            print(f'Folder {target} has been created.')
         #check if there is a file instead of a folder
-        elif arc_folder.is_file():
+        elif target.is_file():
             n = 1
-            tmp = pth / (target + str(n))
+            tmp = target.parent / (target.stem + str(n))
             while tmp.exists():
                 n += 1
-                tmp = pth / (target + str(n))
-            arc_folder.replace(tmp)
-            arc_folder.mkdir()
-            tmp.replace(arc_folder / target)
-            print(f'Folder "{arc_folder}" has been created.')
-            print(f'Warning: the file "{arc_folder}" was moved into the newly created folder.')
+                tmp = target.parent / (target.stem + str(n))
+            target.replace(tmp)
+            target.mkdir()
+            tmp.replace(target / target.stem)
+            print(f'Folder "{target}" has been created.')
+            print(f'Warning: the file "{target}" was moved into the newly created folder.')
+    #move the file
     f.replace(new_file)
     #add to unpack list
-    if target == 'archives':
+    if target.stem == 'archives':
         archives.append(new_file)
 
 def process_folder(f: Path, lvl: int) -> bool:
-    global FOLDERS, other, deleted
+    global global_cntr_other, global_cntr_deleted
     d = bool(lvl)
     for x in f.iterdir():
         if x.is_dir():
-            if x.suffix or not x.stem.lower() in FOLDERS:
+            if x.suffix or lvl or not x.stem.lower() in FOLDERS:
                 d &= process_folder(x, lvl + 1)
         else:
             for s, e in FOLDERS.items():
                 if x.suffix[1:].upper() in e:
-                    process_file(x, s)
+                    process_file(x, x.parents[lvl] / s)
                     break
             else:
                 #unlisted extention = do not move the file
-                other += 1
+                global_cntr_other += 1
                 #mark folder as "not empty"
                 d = False
                 #normalize file name
@@ -120,7 +118,7 @@ def process_folder(f: Path, lvl: int) -> bool:
     if d:
         #delete empty folder
         f.rmdir()
-        deleted += 1
+        global_cntr_deleted += 1
     else:
         #normalize folder name
         x = normalize(f.stem)
@@ -160,9 +158,9 @@ if __name__ == '__main__':
         print('{} file{} renamed due to duplicate name.'.format(*plural(duplicate[0])))
     if duplicate[1]:
         print('{} duplicate file{} deleted.'.format(*plural(duplicate[1])))
-    if deleted:
-        print('{} empty folder{} deleted.'.format(*plural(deleted)))
-    if other:
-        print('{} file{} not moved due to unsupported type (extension).'.format(*plural(other)))
+    if global_cntr_deleted:
+        print('{} empty folder{} deleted.'.format(*plural(global_cntr_deleted)))
+    if global_cntr_other:
+        print('{} file{} not moved due to unsupported type (extension).'.format(*plural(global_cntr_other)))
     if not sum(x for x in total.values()) and not other and not sum(x for x in duplicate):
         print('0 files found to process.')
