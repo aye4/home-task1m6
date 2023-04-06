@@ -57,7 +57,7 @@ def calc_hash(f: Path) -> str:
 def process_file(f: Path, target: Path):
     fname = normalize(f.stem)
     new_file = target / (fname + f.suffix)
-    # duplicate name check (extended for archives - to prevent from more than one archive being unpacked into the same folder)
+    # duplicate name check (extended for archives - to prevent from multiple archives being unpacked into the same folder)
     if (
         new_file.exists()
         or target.stem == "archives"
@@ -67,11 +67,11 @@ def process_file(f: Path, target: Path):
         h = calc_hash(f)
         # cycle to find a unique name (keep checking the hash)
         n = 0
-        x = fname
+        s = fname
         while (
             new_file.exists()
             or target.stem == "archives"
-            and (list(target.glob(x + ".*")) or (target / x).exists())
+            and (list(target.glob(s + ".*")) or (target / s).exists())
         ):
             if (
                 new_file.is_file()
@@ -85,8 +85,8 @@ def process_file(f: Path, target: Path):
             else:
                 # filename pattern: "<old filename>_renamed_001_.<ext>"
                 n += 1
-                x = fname + "_renamed_{:0>3}_".format(n)
-                new_file = target / (x + f.suffix)
+                s = fname + "_renamed_{:0>3}_".format(n)
+                new_file = target / (s + f.suffix)
         # renamed files counter
         duplicate[0] += 1
     else:
@@ -142,9 +142,9 @@ def process_folder(f: Path, lvl: int) -> bool:
         global_cntr_deleted += 1
     else:
         # normalize folder name
-        x = normalize(f.stem)
-        if x != f.stem:
-            f.rename(f.parent / (x + f.suffix))
+        s = normalize(f.stem)
+        if s != f.stem:
+            f.rename(f.parent / (s + f.suffix))
     return d
 
 
@@ -171,10 +171,10 @@ if __name__ == "__main__":
         else:
             x.unlink()
     # print counters
-    x = bool(sum(duplicate)) or bool(global_cntr_deleted) or bool(len(archives))
+    b = bool(sum(duplicate)) or bool(global_cntr_deleted) or bool(len(archives))
     for f, n in total.items():
         if n and f != "archives":
-            x = True
+            b = True
             print('{} file{} moved to the folder "{}".'.format(*plural(n), f))
     if len(archives):
         print("{} archive{} unpacked.".format(*plural(len(archives))))
@@ -186,5 +186,5 @@ if __name__ == "__main__":
         print("{} empty folder{} deleted.".format(*plural(global_cntr_deleted)))
     if global_cntr_other:
         print("{} file{} not moved due to unsupported extension.".format(*plural(global_cntr_other)))
-    elif not x:
+    elif not b:
         print("0 files found to process.")
